@@ -21,7 +21,8 @@ public class Server {
             "/forms.html",
             "/classic.html",
             "/events.html",
-            "/events.js");
+            "/events.js",
+            "/default-get.html");
     private final ExecutorService executorService;
     private final ConcurrentHashMap<String, Map<String, Handler>> handlersMap = new ConcurrentHashMap<>();
 
@@ -46,10 +47,10 @@ public class Server {
         }
     }
 
-    public void addHandler(String method, String msg, Handler handler) {
+    public void addHandler(String method, String path, Handler handler) {
         if (!handlersMap.containsKey(method))
             handlersMap.put(method, new ConcurrentHashMap<>());
 
-        handlersMap.get(method).put(msg, handler);
+        handlersMap.get(method).put(path, handler);
     }
 }
