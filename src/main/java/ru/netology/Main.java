@@ -2,6 +2,7 @@ package ru.netology;
 
 import ru.netology.server.Server;
 import ru.netology.server.ThreadClientHandler;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +29,7 @@ public class Main {
                 ThreadClientHandler.responseOK(request, responseStream);
             }
         });
+        server.addHandler("POST", "/forms.html", ThreadClientHandler::logInConsole);
 
         server.addHandler("GET", "/default-get.html", (request, responseStream) -> {
             if (request.getPath().contains("?")) {
@@ -36,6 +38,7 @@ public class Main {
                 ThreadClientHandler.responseOK(request, responseStream);
             }
         });
+        server.addHandler("POST", "/default-get.html", ThreadClientHandler::logInConsole);
 
         server.addHandler("GET", "/classic.html", (request, responseStream) -> {
             try {

@@ -2,13 +2,16 @@ package ru.netology.server.request;
 
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class Request {
@@ -20,11 +23,14 @@ public class Request {
     private final List<String> headers;
     private final List<NameValuePair> queryParams;
 
-    private Request(String method, String path, List<String> headers, List<NameValuePair> queryParams) {
+    private final List<NameValuePair> postParams;
+
+    private Request(String method, String path, List<String> headers, List<NameValuePair> queryParams, List<NameValuePair> postParams) {
         this.method = method;
         this.path = path;
         this.headers = headers;
         this.queryParams = queryParams;
+        this.postParams = postParams;
     }
 
     public String getMethod() {
@@ -41,6 +47,16 @@ public class Request {
 
     public List<NameValuePair> getQueryParam(String name) {
         return queryParams.stream()
+                .filter((queryParam) -> queryParam.getName().equals(name))
+                .collect(Collectors.toList());
+    }
+
+    public List<NameValuePair> getPostParams() {
+        return postParams;
+    }
+
+    public List<NameValuePair> getPostParam(String name) {
+        return postParams.stream()
                 .filter((queryParam) -> queryParam.getName().equals(name))
                 .collect(Collectors.toList());
     }
@@ -92,7 +108,19 @@ public class Request {
 
         List<NameValuePair> queryParams = URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8);
 
-        return new Request(method, path, headers, queryParams);
+        List<NameValuePair> postParams = Collections.emptyList();
+        if (method.equals(POST)) {
+            in.skip(headersDelimiter.length);
+            final var contentLength = extractHeader(headers, "Content-Length");
+            if (contentLength.isPresent()) {
+                final var length = Integer.parseInt(contentLength.get());
+                final var bodyBytes = in.readNBytes(length);
+
+                postParams = URLEncodedUtils.parse(new String(bodyBytes), StandardCharsets.UTF_8);
+            }
+        }
+
+        return new Request(method, path, headers, queryParams, postParams);
     }
 
     private static int indexOf(byte[] array, byte[] target, int start, int max) {
@@ -106,5 +134,13 @@ public class Request {
             return i;
         }
         return -1;
+    }
+
+    private static Optional<String> extractHeader(List<String> headers, String header) {
+        return headers.stream()
+                .filter(o -> o.startsWith(header))
+                .map(o -> o.substring(o.indexOf(" ")))
+                .map(String::trim)
+                .findFirst();
     }
 }

@@ -100,9 +100,18 @@ public class ThreadClientHandler extends Thread {
         }
         System.out.println();
 
-        System.out.println("QUERY_STRING: ");
-        for (NameValuePair nameValuePair : request.getQueryParams()) {
-            System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
+        if (!request.getQueryParams().isEmpty()) {
+            System.out.println("QUERY_STRING: ");
+            for (NameValuePair nameValuePair : request.getQueryParams()) {
+                System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
+            }
+        }
+
+        if (!request.getPostParams().isEmpty()) {
+            System.out.println("BODY_PARAM: ");
+            for (NameValuePair nameValuePair : request.getPostParams()) {
+                System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
+            }
         }
     }
 }
