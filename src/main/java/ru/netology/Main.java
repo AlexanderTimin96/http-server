@@ -2,7 +2,6 @@ package ru.netology;
 
 import ru.netology.server.Server;
 import ru.netology.server.ThreadClientHandler;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,16 +18,24 @@ public class Main {
         server.addHandler("GET", "/styles.css", ThreadClientHandler::responseOK);
         server.addHandler("GET", "/app.js", ThreadClientHandler::responseOK);
         server.addHandler("GET", "/links.html", ThreadClientHandler::responseOK);
-
-        server.addHandler("GET", "/forms.html", ThreadClientHandler::responseOK);
-        server.addHandler("POST", "/forms.html", ThreadClientHandler::logInConsole);
-
-
         server.addHandler("GET", "/events.js", ThreadClientHandler::responseOK);
         server.addHandler("GET", "/events.html", ThreadClientHandler::responseOK);
 
-        server.addHandler("GET", "/default-get.html", ThreadClientHandler::responseOK);
-        server.addHandler("POST", "/default-get.html", ThreadClientHandler::logInConsole);
+        server.addHandler("GET", "/forms.html", (request, responseStream) -> {
+            if (request.getPath().contains("?")) {
+                ThreadClientHandler.logInConsole(request, responseStream);
+            } else {
+                ThreadClientHandler.responseOK(request, responseStream);
+            }
+        });
+
+        server.addHandler("GET", "/default-get.html", (request, responseStream) -> {
+            if (request.getPath().contains("?")) {
+                ThreadClientHandler.logInConsole(request, responseStream);
+            } else {
+                ThreadClientHandler.responseOK(request, responseStream);
+            }
+        });
 
         server.addHandler("GET", "/classic.html", (request, responseStream) -> {
             try {
@@ -48,7 +55,6 @@ public class Main {
                 e.printStackTrace();
             }
         });
-
 
         server.start(9999);
     }

@@ -1,5 +1,6 @@
 package ru.netology.server;
 
+import org.apache.http.NameValuePair;
 import ru.netology.server.handler.Handler;
 import ru.netology.server.request.Request;
 
@@ -36,7 +37,7 @@ public class ThreadClientHandler extends Thread {
             }
 
             if (!handlersMap.containsKey(request.getMethod())
-                    || !handlersMap.get(request.getMethod()).containsKey(request.getPath().split("\\?")[0])) {
+                    || !(handlersMap.get(request.getMethod()).containsKey(request.getPath().split("\\?")[0]))) {
                 responseNotFound(out);
                 this.interrupt();
             }
@@ -99,7 +100,9 @@ public class ThreadClientHandler extends Thread {
         }
         System.out.println();
 
-        System.out.println("BODY: ");
-        System.out.println(request.getQueryParams());
+        System.out.println("QUERY_STRING: ");
+        for (NameValuePair nameValuePair : request.getQueryParams()) {
+            System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
+        }
     }
 }

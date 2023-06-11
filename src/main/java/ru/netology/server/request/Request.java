@@ -1,9 +1,7 @@
 package ru.netology.server.request;
 
-
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -19,13 +17,8 @@ public class Request {
     private static final String POST = "POST";
     private final String method;
     private final String path;
-    private List<String> headers;
-    private List<NameValuePair> queryParams;
-
-    private Request(String method, String path) {
-        this.method = method;
-        this.path = path;
-    }
+    private final List<String> headers;
+    private final List<NameValuePair> queryParams;
 
     private Request(String method, String path, List<String> headers, List<NameValuePair> queryParams) {
         this.method = method;
@@ -41,7 +34,6 @@ public class Request {
     public String getPath() {
         return path;
     }
-
 
     public List<NameValuePair> getQueryParams() {
         return queryParams;
@@ -81,7 +73,6 @@ public class Request {
             return null;
         }
 
-
         final var path = requestLine[1];
         if (!path.startsWith("/")) {
             return null;
@@ -99,11 +90,9 @@ public class Request {
         final var headersBytes = in.readNBytes(headersEnd - headersStart);
         final var headers = Arrays.asList(new String(headersBytes).split("\r\n"));
 
-        if (method.equalsIgnoreCase(POST)) {
-            List<NameValuePair> queryParams = URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8);
-            return new Request(method, path, headers, queryParams);
-        }
-        return new Request(method, path);
+        List<NameValuePair> queryParams = URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8);
+
+        return new Request(method, path, headers, queryParams);
     }
 
     private static int indexOf(byte[] array, byte[] target, int start, int max) {
