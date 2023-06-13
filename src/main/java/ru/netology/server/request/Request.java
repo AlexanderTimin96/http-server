@@ -1,36 +1,45 @@
 package ru.netology.server.request;
 
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.RequestContext;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 
 import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public class Request {
-
+public class Request implements RequestContext {
     private static final String GET = "GET";
     private static final String POST = "POST";
     private final String method;
     private final String path;
     private final List<String> headers;
-    private final List<NameValuePair> queryParams;
+    private final String contentType;
+    private final byte[] body;
+    private static final byte[] headersDelimiter = new byte[]{'\r', '\n', '\r', '\n'};
+    private static final byte[] requestLineDelimiter = new byte[]{'\r', '\n'};
+    private List<NameValuePair> queryParams;
+    private List<NameValuePair> postParams;
+    private List<FileItem> postParts;
 
-    private final List<NameValuePair> postParams;
-
-    private Request(String method, String path, List<String> headers, List<NameValuePair> queryParams, List<NameValuePair> postParams) {
+    private Request(String method, String path, List<String> headers, String contentType, byte[] body) {
         this.method = method;
         this.path = path;
         this.headers = headers;
-        this.queryParams = queryParams;
-        this.postParams = postParams;
+        this.contentType = contentType;
+        this.body = body;
     }
 
     public String getMethod() {
@@ -39,6 +48,34 @@ public class Request {
 
     public String getPath() {
         return path;
+    }
+
+    public List<String> getHeaders() {
+        return headers;
+    }
+
+    @Override
+    public String getCharacterEncoding() {
+        return StandardCharsets.UTF_8.toString();
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    @Override
+    @Deprecated
+    public int getContentLength() {
+        return 0;
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+        return new ByteArrayInputStream(body);
+    }
+
+    public void setQueryParams(List<NameValuePair> queryParams) {
+        this.queryParams = queryParams;
     }
 
     public List<NameValuePair> getQueryParams() {
@@ -57,15 +94,21 @@ public class Request {
 
     public List<NameValuePair> getPostParam(String name) {
         return postParams.stream()
-                .filter((queryParam) -> queryParam.getName().equals(name))
+                .filter((postParam) -> postParam.getName().equals(name))
                 .collect(Collectors.toList());
     }
 
-    public List<String> getHeaders() {
-        return headers;
+    public List<FileItem> getPostParts() {
+        return postParts;
     }
 
-    public static Request requestBuild(BufferedInputStream in) throws IOException, URISyntaxException {
+    public List<FileItem> getPostPart(String name) {
+        return postParts.stream()
+                .filter((postParam) -> postParam.getName().equals(name))
+                .collect(Collectors.toList());
+    }
+
+    public static Request requestBuild(BufferedInputStream in) throws IOException {
         final var allowedMethods = List.of(GET, POST);
         final var limit = 4096;
 
@@ -73,7 +116,6 @@ public class Request {
         final var buffer = new byte[limit];
         final var read = in.read(buffer);
 
-        final var requestLineDelimiter = new byte[]{'\r', '\n'};
         final var requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, read);
         if (requestLineEnd == -1) {
             return null;
@@ -94,7 +136,6 @@ public class Request {
             return null;
         }
 
-        final var headersDelimiter = new byte[]{'\r', '\n', '\r', '\n'};
         final var headersStart = requestLineEnd + requestLineDelimiter.length;
         final var headersEnd = indexOf(buffer, headersDelimiter, headersStart, read);
         if (headersEnd == -1) {
@@ -106,21 +147,17 @@ public class Request {
         final var headersBytes = in.readNBytes(headersEnd - headersStart);
         final var headers = Arrays.asList(new String(headersBytes).split("\r\n"));
 
-        List<NameValuePair> queryParams = URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8);
+        final var contentType = extractHeader(headers, "Content-Type").toString();
 
-        List<NameValuePair> postParams = Collections.emptyList();
-        if (method.equals(POST)) {
-            in.skip(headersDelimiter.length);
-            final var contentLength = extractHeader(headers, "Content-Length");
-            if (contentLength.isPresent()) {
-                final var length = Integer.parseInt(contentLength.get());
-                final var bodyBytes = in.readNBytes(length);
-
-                postParams = URLEncodedUtils.parse(new String(bodyBytes), StandardCharsets.UTF_8);
-            }
+        byte[] body = null;
+        in.skip(headersDelimiter.length);
+        final var contentLength = extractHeader(headers, "Content-Length");
+        if (contentLength.isPresent()) {
+            final var length = Integer.parseInt(contentLength.get());
+            body = in.readNBytes(length);
         }
 
-        return new Request(method, path, headers, queryParams, postParams);
+        return new Request(method, path, headers, contentType, body);
     }
 
     private static int indexOf(byte[] array, byte[] target, int start, int max) {
@@ -142,5 +179,23 @@ public class Request {
                 .map(o -> o.substring(o.indexOf(" ")))
                 .map(String::trim)
                 .findFirst();
+    }
+
+    public void setParams() throws URISyntaxException, IOException, FileUploadException {
+        if (getMethod().equals(GET)) {
+            setQueryParams(URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8));
+        }
+
+        if (getMethod().equals(POST)) {
+            if (contentType.equals("application/x-www-form-urlencoded")) {
+                postParams = URLEncodedUtils.parse(new String(body), StandardCharsets.UTF_8);
+            }
+
+            if (contentType.contains("multipart/form-data")) {
+                DiskFileItemFactory factory = new DiskFileItemFactory();
+                ServletFileUpload upload = new ServletFileUpload(factory);
+                postParts = upload.parseRequest(this);
+            }
+        }
     }
 }

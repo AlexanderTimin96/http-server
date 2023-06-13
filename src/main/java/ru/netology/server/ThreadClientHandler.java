@@ -1,11 +1,14 @@
 package ru.netology.server;
 
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileUploadException;
 import org.apache.http.NameValuePair;
 import ru.netology.server.handler.Handler;
 import ru.netology.server.request.Request;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URISyntaxException;
@@ -36,6 +39,10 @@ public class ThreadClientHandler extends Thread {
                 this.interrupt();
             }
 
+            if (request.getMethod().equals("POST")) {
+                request.setParams();
+            }
+
             if (!handlersMap.containsKey(request.getMethod())
                     || !(handlersMap.get(request.getMethod()).containsKey(request.getPath().split("\\?")[0]))) {
                 responseNotFound(out);
@@ -46,7 +53,7 @@ public class ThreadClientHandler extends Thread {
             handler.handle(request, out);
             this.interrupt();
 
-        } catch (IOException | URISyntaxException e) {
+        } catch (IOException | URISyntaxException | FileUploadException e) {
             e.printStackTrace();
         }
     }
@@ -100,17 +107,36 @@ public class ThreadClientHandler extends Thread {
         }
         System.out.println();
 
-        if (!request.getQueryParams().isEmpty()) {
+        if (!(request.getQueryParams() == null)) {
             System.out.println("QUERY_STRING: ");
             for (NameValuePair nameValuePair : request.getQueryParams()) {
                 System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
             }
         }
 
-        if (!request.getPostParams().isEmpty()) {
+        if (!(request.getPostParams() == null)) {
             System.out.println("BODY_PARAM: ");
             for (NameValuePair nameValuePair : request.getPostParams()) {
                 System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
+            }
+        }
+
+        if (!(request.getPostParts() == null)) {
+            System.out.println("BODY_PARTS: ");
+            for (FileItem fileItem : request.getPostParts()) {
+                if (fileItem.isFormField()) {
+                    System.out.println(fileItem.getName() + " : " + fileItem.getString());
+                }
+                if (fileItem.isInMemory()) {
+                    String fileName = fileItem.getName();
+                    try {
+                        fileItem.write(new File(fileName));
+                        System.out.println("File save in project:" + fileName);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                }
             }
         }
     }
