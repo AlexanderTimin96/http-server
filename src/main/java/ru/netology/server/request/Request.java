@@ -147,7 +147,11 @@ public class Request implements RequestContext {
         final var headersBytes = in.readNBytes(headersEnd - headersStart);
         final var headers = Arrays.asList(new String(headersBytes).split("\r\n"));
 
-        final var contentType = extractHeader(headers, "Content-Type").toString();
+        String contentType = null;
+        final var type = extractHeader(headers, "Content-Type");
+        if (type.isPresent()) {
+            contentType = type.get();
+        }
 
         byte[] body = null;
         in.skip(headersDelimiter.length);

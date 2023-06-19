@@ -8,12 +8,12 @@ import ru.netology.server.request.Request;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -107,35 +107,33 @@ public class ThreadClientHandler extends Thread {
         }
         System.out.println();
 
-        if (!(request.getQueryParams() == null)) {
+        if (request.getQueryParams() != null) {
             System.out.println("QUERY_STRING: ");
             for (NameValuePair nameValuePair : request.getQueryParams()) {
                 System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
             }
         }
 
-        if (!(request.getPostParams() == null)) {
+        if (request.getPostParams() != null) {
             System.out.println("BODY_PARAM: ");
             for (NameValuePair nameValuePair : request.getPostParams()) {
                 System.out.println(nameValuePair.getName() + ": " + nameValuePair.getValue());
             }
         }
 
-        if (!(request.getPostParts() == null)) {
+        if (request.getPostParts() != null) {
             System.out.println("BODY_PARTS: ");
             for (FileItem fileItem : request.getPostParts()) {
                 if (fileItem.isFormField()) {
-                    System.out.println(fileItem.getName() + " : " + fileItem.getString());
-                }
-                if (fileItem.isInMemory()) {
+                    System.out.println(fileItem.getFieldName() + " : " + fileItem.getString());
+                } else {
                     String fileName = fileItem.getName();
-                    try {
-                        fileItem.write(new File(fileName));
-                        System.out.println("File save in project:" + fileName);
+                    try (final var stream = fileItem.getInputStream()) {
+                        Files.copy(stream, Path.of(".").resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
+                        System.out.println("File save in project: " + fileName);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-
                 }
             }
         }
